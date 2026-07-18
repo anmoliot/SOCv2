@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SOC Lab v2 — Command Center</title>
+<link rel="stylesheet" href="soc-theme.css">
+<style>
+  body { background:#080c16; font-family:var(--font-sans); color:var(--text-primary); margin:0; position:relative; min-height:100vh; overflow-x:hidden; }
+  .portal-header { position:sticky; top:0; z-index:100; background:rgba(8,12,24,0.65); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-bottom:1px solid rgba(255,255,255,0.08); box-shadow:var(--shadow-sm); display:flex; align-items:center; justify-content:space-between; padding:0 var(--space-6); height:var(--header-h); }
+  .portal-logo { font-size:18px; font-weight:700; color:var(--text-primary); letter-spacing:-.02em; }
+  .portal-logo span { color:var(--accent); text-shadow: 0 0 10px rgba(59,130,246,0.5); }
+  .portal-meta { display:flex; align-items:center; gap:var(--space-4); font-size:13px; color:var(--text-muted); }
+  .portal-clock { font-family:var(--font-mono); color:var(--text-secondary); }
+  .hero-bar { background: linear-gradient(135deg, rgba(20, 29, 48, 0.5) 0%, rgba(15, 22, 38, 0.4) 100%); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-md); box-shadow:var(--shadow-md); padding:var(--space-6); margin: var(--space-6) var(--space-6) 0; position:relative; overflow:hidden; }
+  .hero-bar::before { content:''; position:absolute; top:-50%; right:-10%; width:400px; height:400px; background:radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%); filter:blur(40px); pointer-events:none; }
+  .hero-bar h2 { margin:0 0 6px; font-size:24px; font-weight:700; letter-spacing:-.01em; color:#ffffff; }
+  .hero-bar p  { margin:0 0 var(--space-6); color:var(--text-secondary); font-size:14px; max-width:700px; line-height:1.6; }
+  .hero-kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:var(--space-3); }
+  @media(max-width:900px){ .hero-kpis { grid-template-columns:repeat(3,1fr); } }
+  .portal-body { padding:var(--space-6); }
+  .section-title { font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:var(--text-secondary); margin:0 0 var(--space-4); display:flex; align-items:center; gap:8px; }
+  .section-title::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.06); }
+  .dash-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:var(--space-4); margin-bottom:var(--space-6); }
+  .dash-card { background:rgba(18,26,44,0.45); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.07); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:var(--space-4) var(--space-5); text-decoration:none; color:inherit; display:block; transition:all var(--transition); position:relative; overflow:hidden; }
+  .dash-card::before { content:''; position:absolute; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg, rgba(59,130,246,0.05), transparent); opacity:0; transition:opacity var(--transition); pointer-events:none; }
+  .dash-card:hover { border-color:rgba(59,130,246,0.5); transform:translateY(-5px); box-shadow:var(--shadow-md), 0 0 20px rgba(59,130,246,0.15); }
+  .dash-card:hover::before { opacity:1; }
+  .dash-card-icon { font-size:26px; margin-bottom:var(--space-2); filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2)); }
+  .dash-card-name { font-size:15px; font-weight:600; margin-bottom:4px; color:#ffffff; }
+  .dash-card-desc { font-size:12px; color:var(--text-secondary); margin-bottom:var(--space-3); line-height:1.5; }
+  .dash-card-tags { display:flex; gap:6px; flex-wrap:wrap; }
+  .tools-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:var(--space-3); margin-bottom:var(--space-6); }
+  .tool-link { background:rgba(18,26,44,0.4); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius-sm); box-shadow:var(--shadow-sm); padding:var(--space-3) var(--space-4); text-decoration:none; color:var(--text-secondary); font-size:13px; display:flex; align-items:center; gap:8px; transition:all var(--transition); }
+  .tool-link:hover { border-color:rgba(59,130,246,0.45); color:#ffffff; transform:translateY(-3px); box-shadow:var(--shadow-sm), 0 0 15px rgba(59,130,246,0.12); }
+  .tool-port { margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-muted); }
+  .qs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:var(--space-4); margin-bottom:var(--space-6); }
+  .qs-card { background:rgba(18,26,44,0.4); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:var(--space-4); }
+  .qs-card h4 { margin:0 0 var(--space-3); font-size:13px; color:var(--text-primary); font-weight:600; }
+  .ticker { position:fixed; bottom:0; left:0; right:0; background:rgba(8,12,22,0.75); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-top:1px solid rgba(255,255,255,0.06); box-shadow:0 -4px 16px rgba(0,0,0,0.3); padding:8px var(--space-4); display:flex; align-items:center; gap:var(--space-4); font-size:12px; z-index:90; overflow:hidden; }
+  .ticker-label { color:var(--accent); font-weight:700; font-family:var(--font-mono); white-space:nowrap; }
+  .ticker-track { flex:1; overflow:hidden; }
+  .ticker-inner { display:flex; gap:var(--space-6); animation:scroll-left 40s linear infinite; white-space:nowrap; }
+  @keyframes scroll-left { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+  .ticker-item { color:var(--text-muted); }
+  .ticker-item .t-high { color:var(--high); font-weight:500; }
+  .ticker-item .t-crit { color:var(--critical); font-weight:600; }
+  pb { padding-bottom: 50px; display:block; }
+</style>
+</head>
+<body>
+
+<canvas id="bg-interactive-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-5;pointer-events:none;"></canvas>
+
+<header class="portal-header">
+  <div class="portal-logo">SOC Lab <span>v2</span></div>
+  <div class="portal-meta">
+    <span class="status-dot green"></span>
+    <span>12 services running</span>
+    <span class="portal-clock" id="clock">--:--:-- UTC</span>
+  </div>
+</header>
+
+<div class="hero-bar">
+  <h2>Security Operations Command Center</h2>
+  <p>Full-stack SOC lab — SIEM, NSM, SOAR, Threat Intel, DFIR, Attack Simulation, and AI-powered analysis. 100% open-source, runs locally via Docker Compose.</p>
+  <div class="hero-kpis">
+    <div class="kpi-card critical">
+      <div class="kpi-label">Critical Alerts</div>
+      <div class="kpi-value">9</div>
+      <div class="kpi-sub">↑ 3 new</div>
+    </div>
+    <div class="kpi-card high">
+      <div class="kpi-label">High Severity</div>
+      <div class="kpi-value">127</div>
+      <div class="kpi-sub">14 unreviewed</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Events (24h)</div>
+      <div class="kpi-value">48K</div>
+      <div class="kpi-sub">↑ 12%</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Open Cases</div>
+      <div class="kpi-value">2</div>
+      <div class="kpi-sub">IRIS tracked</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">IOCs Active</div>
+      <div class="kpi-value">12,847</div>
+      <div class="kpi-sub">4 feeds</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Detection Rate</div>
+      <div class="kpi-value">85%</div>
+      <div class="kpi-sub">APT-29 sim</div>
+    </div>
+  </div>
+</div>
+
+<div class="portal-body">
+
+  <div class="section-title">Dashboards</div>
+  <div class="dash-grid">
+
+    <a href="01_soc_overview.html" class="dash-card">
+      <div class="dash-card-icon">🖥️</div>
+      <div class="dash-card-name">SOC Overview</div>
+      <div class="dash-card-desc">Live alert feed, MITRE heatmap, sensor status, top IPs</div>
+      <div class="dash-card-tags"><span class="badge badge-critical">Live</span><span class="badge badge-low">WebSocket</span></div>
+    </a>
+
+    <a href="11_live_threat_map.html" class="dash-card">
+      <div class="dash-card-icon">🗺️</div>
+      <div class="dash-card-name">Live Threat Map</div>
+      <div class="dash-card-desc">Global cyber attack globe, ThreatsEye live stream, origin telemetry</div>
+      <div class="dash-card-tags"><span class="badge badge-critical">Live Stream</span><span class="badge badge-low">ThreatsEye</span></div>
+    </a>
+
+    <a href="02_opensearch_siem.html" class="dash-card">
+      <div class="dash-card-icon">🔍</div>
+      <div class="dash-card-name">OpenSearch SIEM</div>
+      <div class="dash-card-desc">24h event timeline, severity breakdown, ElastAlert2 rules</div>
+      <div class="dash-card-tags"><span class="badge badge-high">9 critical</span></div>
+    </a>
+
+    <a href="03_zeek_network.html" class="dash-card">
+      <div class="dash-card-icon">🌐</div>
+      <div class="dash-card-name">Zeek NSM</div>
+      <div class="dash-card-desc">Live conn.log stream, protocol analysis, DNS anomaly detection</div>
+      <div class="dash-card-tags"><span class="badge badge-medium">T1557.001</span></div>
+    </a>
+
+    <a href="04_suricata_ids.html" class="dash-card">
+      <div class="dash-card-icon">🛡️</div>
+      <div class="dash-card-name">Suricata IDS</div>
+      <div class="dash-card-desc">EVE JSON alert feed, category breakdown, top signatures</div>
+      <div class="dash-card-tags"><span class="badge badge-critical">47 blocked</span></div>
+    </a>
+
+    <a href="05_ai_agents.html" class="dash-card">
+      <div class="dash-card-icon">🤖</div>
+      <div class="dash-card-name">AI Agents</div>
+      <div class="dash-card-desc">CrewAI threat analyst, incident responder, threat hunter, detection engineer</div>
+      <div class="dash-card-tags"><span class="badge badge-low">Ollama LLM</span></div>
+    </a>
+
+    <a href="12_ai_training_studio.html" class="dash-card">
+      <div class="dash-card-icon">🧠</div>
+      <div class="dash-card-name">AI Training Studio</div>
+      <div class="dash-card-desc">Deep neural fine-tuning & anomaly training from previous attack datasets</div>
+      <div class="dash-card-tags"><span class="badge badge-critical">NEW Studio</span><span class="badge badge-low">LoRA/QoRA</span></div>
+    </a>
+
+    <a href="06_iris_cases.html" class="dash-card">
+      <div class="dash-card-icon">📋</div>
+      <div class="dash-card-name">DFIR-IRIS</div>
+      <div class="dash-card-desc">Case management, attack timeline, IOC tracker</div>
+      <div class="dash-card-tags"><span class="badge badge-critical">2 open</span></div>
+    </a>
+
+    <a href="07_caldera_attack.html" class="dash-card">
+      <div class="dash-card-icon">⚔️</div>
+      <div class="dash-card-name">Caldera Attack Sim</div>
+      <div class="dash-card-desc">APT-29 emulation, ATT&amp;CK coverage matrix, detection scoring</div>
+      <div class="dash-card-tags"><span class="badge badge-medium">85% detected</span></div>
+    </a>
+
+    <a href="08_misp_ti.html" class="dash-card">
+      <div class="dash-card-icon">🕵️</div>
+      <div class="dash-card-name">MISP Threat Intel</div>
+      <div class="dash-card-desc">IOC lookup, feed status, APT-29 attribution card</div>
+      <div class="dash-card-tags"><span class="badge badge-low">12,847 IOCs</span></div>
+    </a>
+
+    <a href="09_velociraptor.html" class="dash-card">
+      <div class="dash-card-icon">🦖</div>
+      <div class="dash-card-name">Velociraptor DFIR</div>
+      <div class="dash-card-desc">Live forensic hunts, process analysis, VQL query console</div>
+      <div class="dash-card-tags"><span class="badge badge-critical">3 suspicious</span></div>
+    </a>
+
+    <a href="10_responder_redteam.html" class="dash-card">
+      <div class="dash-card-icon">🔴</div>
+      <div class="dash-card-name">Red Team / Responder</div>
+      <div class="dash-card-desc">LLMNR poisoning, NTLMv2 capture, blue team response timeline</div>
+      <div class="dash-card-tags"><span class="badge badge-critical">Lab only</span></div>
+    </a>
+
+  </div>
+
+  <div class="section-title">Direct Tool Access</div>
+  <div class="tools-grid">
+    <a href="http://localhost:5601" target="_blank" class="tool-link">🔍 OpenSearch Dashboards <span class="tool-port">:5601</span></a>
+    <a href="http://localhost:4460" target="_blank" class="tool-link">📋 DFIR-IRIS <span class="tool-port">:4460</span></a>
+    <a href="http://localhost:8888" target="_blank" class="tool-link">⚔️ MITRE Caldera <span class="tool-port">:8888</span></a>
+    <a href="http://localhost:8889" target="_blank" class="tool-link">🦖 Velociraptor <span class="tool-port">:8889</span></a>
+    <a href="http://localhost:4000" target="_blank" class="tool-link">🕵️ MISP <span class="tool-port">:4000</span></a>
+    <a href="http://localhost:9000" target="_blank" class="tool-link">⚡ StackStorm <span class="tool-port">:9000</span></a>
+    <a href="http://localhost:8000/docs" target="_blank" class="tool-link">🤖 AI Agents API <span class="tool-port">:8000</span></a>
+    <a href="http://localhost:11434" target="_blank" class="tool-link">🧠 Ollama LLM <span class="tool-port">:11434</span></a>
+    <a href="http://localhost:9200" target="_blank" class="tool-link">📦 OpenSearch API <span class="tool-port">:9200</span></a>
+  </div>
+
+  <div class="section-title">Quick Start</div>
+  <div class="qs-grid">
+
+    <div class="qs-card">
+      <h4>1 · Setup &amp; Deploy</h4>
+      <div class="log-block">git clone &lt;repo&gt; soc-lab &amp;&amp; cd soc-lab
+chmod +x setup.sh health-check.sh simulate-attack.sh
+sudo ./setup.sh</div>
+    </div>
+
+    <div class="qs-card">
+      <h4>2 · Run APT-29 Simulation</h4>
+      <div class="log-block">./simulate-attack.sh apt29
+# Injects 13 MITRE ATT&CK events
+# into OpenSearch soc-logs-* index
+
+./simulate-attack.sh verify
+# Confirms events were indexed</div>
+    </div>
+
+    <div class="qs-card">
+      <h4>3 · Optional — Red Team Profile</h4>
+      <div class="log-block">docker compose --profile redteam up -d
+# Starts Responder on lab VLAN
+# LLMNR/NBT-NS poisoning active
+# Lab network only!</div>
+    </div>
+
+  </div>
+
+</div>
+
+<pb></pb>
+
+<!-- Ticker -->
+<div class="ticker">
+  <span class="ticker-label">LIVE</span>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="ticker-inner">
+      <span class="ticker-item"><span class="t-crit">[CRITICAL]</span> T1003.001 LSASS dump — WKSTN-FINANCE-01 · 185.220.101.45</span>
+      <span class="ticker-item"><span class="t-high">[HIGH]</span> T1110.001 Password spray — 247 failures in 60s against DC-CORP-01</span>
+      <span class="ticker-item"><span class="t-crit">[CRITICAL]</span> T1041 Exfil 4.2 GB to Tor exit node — port 443</span>
+      <span class="ticker-item"><span class="t-high">[HIGH]</span> T1557.001 LLMNR poisoning — CORP\jsmith hash captured</span>
+      <span class="ticker-item">[MISP] New IOC matched: 185.220.101.45 — APT-29 Cozy Bear confirmed</span>
+      <span class="ticker-item"><span class="t-crit">[CRITICAL]</span> Suricata SID 2030358 — Cobalt Strike Beacon blocked</span>
+      <span class="ticker-item">[IRIS] Case INC-2026-001 updated — lateral movement to DC-CORP-01 confirmed</span>
+      <span class="ticker-item">[AI] Threat Analyst agent: 85% confidence APT-29 attribution · 13 TTPs matched</span>
+      <span class="ticker-item"><span class="t-crit">[CRITICAL]</span> T1562.001 Defender disabled — detection gap identified</span>
+      <span class="ticker-item">[CALDERA] APT-29 operation complete — 11/13 techniques detected (85%)</span>
+      <!-- duplicate for seamless loop -->
+      <span class="ticker-item"><span class="t-crit">[CRITICAL]</span> T1003.001 LSASS dump — WKSTN-FINANCE-01 · 185.220.101.45</span>
+      <span class="ticker-item"><span class="t-high">[HIGH]</span> T1110.001 Password spray — 247 failures in 60s against DC-CORP-01</span>
+      <span class="ticker-item"><span class="t-crit">[CRITICAL]</span> T1041 Exfil 4.2 GB to Tor exit node — port 443</span>
+      <span class="ticker-item"><span class="t-high">[HIGH]</span> T1557.001 LLMNR poisoning — CORP\jsmith hash captured</span>
+      <span class="ticker-item">[MISP] New IOC matched: 185.220.101.45 — APT-29 Cozy Bear confirmed</span>
+      <span class="ticker-item"><span class="t-crit">[CRITICAL]</span> Suricata SID 2030358 — Cobalt Strike Beacon blocked</span>
+      <span class="ticker-item">[IRIS] Case INC-2026-001 updated — lateral movement to DC-CORP-01 confirmed</span>
+      <span class="ticker-item">[AI] Threat Analyst agent: 85% confidence APT-29 attribution · 13 TTPs matched</span>
+      <span class="ticker-item"><span class="t-crit">[CRITICAL]</span> T1562.001 Defender disabled — detection gap identified</span>
+      <span class="ticker-item">[CALDERA] APT-29 operation complete — 11/13 techniques detected (85%)</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// UTC clock
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getUTCHours()).padStart(2,'0');
+  const m = String(now.getUTCMinutes()).padStart(2,'0');
+  const s = String(now.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s} UTC`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// Interactive Network Topology Constellation Canvas
+(function() {
+  const canvas = document.getElementById('bg-interactive-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  let width = canvas.width = window.innerWidth;
+  let height = canvas.height = window.innerHeight;
+
+  window.addEventListener('resize', () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
+
+  const nodes = [];
+  const maxNodes = 60;
+  const maxDistance = 150;
+
+  class Node {
+    constructor() {
+      this.x = Math.random() * width;
+      this.y = Math.random() * height;
+      this.vx = (Math.random() - 0.5) * 0.35;
+      this.vy = (Math.random() - 0.5) * 0.35;
+      this.radius = Math.random() * 2 + 1.2;
+    }
+
+    update(mouse) {
+      // Magnetic cursor attraction
+      const dx = mouse.x - this.x;
+      const dy = mouse.y - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 180) {
+        const force = (180 - dist) / 180;
+        this.vx += (dx / dist) * force * 0.02;
+        this.vy += (dy / dist) * force * 0.02;
+      }
+
+      // Physics drag
+      this.vx *= 0.97;
+      this.vy *= 0.97;
+
+      // Speed clamp
+      const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+      if (speed > 1.0) {
+        this.vx = (this.vx / speed) * 1.0;
+        this.vy = (this.vy / speed) * 1.0;
+      }
+
+      this.x += this.vx;
+      this.y += this.vy;
+
+      // Boundary wraps
+      if (this.x < -10) this.x = width + 10;
+      if (this.x > width + 10) this.x = -10;
+      if (this.y < -10) this.y = height + 10;
+      if (this.y > height + 10) this.y = -10;
+    }
+
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(96, 165, 250, 0.45)';
+      ctx.fill();
+    }
+  }
+
+  // Populate network nodes
+  for (let i = 0; i < maxNodes; i++) {
+    nodes.push(new Node());
+  }
+
+  const mouse = { x: -1000, y: -1000 };
+  window.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  });
+  window.addEventListener('mouseleave', () => {
+    mouse.x = -1000;
+    mouse.y = -1000;
+  });
+
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw background dot grid pattern
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+    const spacing = 36;
+    for (let x = 0; x < width; x += spacing) {
+      for (let y = 0; y < height; y += spacing) {
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    // Connect node graph connections
+    for (let i = 0; i < nodes.length; i++) {
+      nodes[i].update(mouse);
+      nodes[i].draw();
+
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < maxDistance) {
+          const alpha = (1 - dist / maxDistance) * 0.12;
+          ctx.strokeStyle = `rgba(96, 165, 250, ${alpha})`;
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+</script>
+</body>
+</html>

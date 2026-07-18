@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Cyber Threat Map — SOC Lab v2</title>
+  <link rel="stylesheet" href="soc-theme.css">
+  <style>
+    .map-header-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .toggle-group {
+      display: flex;
+      background: rgba(10, 14, 26, 0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 3px;
+      gap: 3px;
+    }
+    .toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toggle-btn.active {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    }
+    .map-viewport {
+      position: relative;
+      width: 100%;
+      height: 600px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #060913;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+    }
+    .map-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #060913;
+      display: block;
+    }
+    .canvas-map {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .map-overlay-stats {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(10, 14, 26, 0.85);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      display: flex;
+      gap: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+    .stat-val {
+      font-size: 18px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+    .stat-val.crit { color: var(--critical); text-shadow: 0 0 10px rgba(248,81,73,0.4); }
+    .stat-val.high { color: var(--high); text-shadow: 0 0 10px rgba(251,143,68,0.4); }
+    .stat-val.acc  { color: var(--accent); }
+
+    .live-feed-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .live-feed-table th {
+      text-align: left;
+      padding: 10px 14px;
+      background: rgba(15, 22, 38, 0.5);
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+    .live-feed-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      color: var(--text-primary);
+      transition: background 0.15s;
+    }
+    .live-feed-table tr:hover td {
+      background: rgba(59, 130, 246, 0.06);
+    }
+    .pulse-circle {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--critical);
+      box-shadow: 0 0 8px var(--critical);
+      animation: blink-pulse 1s infinite;
+    }
+    @keyframes blink-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(1.4); }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <a href="index.html" class="brand-icon" style="text-decoration:none;font-size:15px;">🛡️</a>
+      <div class="brand-text">
+        <span class="brand-title">SOC Lab v2</span>
+        <span class="brand-sub">COMMAND CENTER</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Dashboards</div>
+      <ul class="sidebar-nav">
+        <li class="nav-item"><a href="01_soc_overview.html"><span class="nav-icon">📊</span><span>SOC Overview</span></a></li>
+        <li class="nav-item"><a href="11_live_threat_map.html" class="active"><span class="nav-icon">🗺️</span><span>Live Threat Map</span></a></li>
+        <li class="nav-item"><a href="02_opensearch_siem.html"><span class="nav-icon">🔍</span><span>OpenSearch SIEM</span></a></li>
+        <li class="nav-item"><a href="03_zeek_network.html"><span class="nav-icon">🌐</span><span>Zeek Network</span></a></li>
+        <li class="nav-item"><a href="04_suricata_ids.html"><span class="nav-icon">🚨</span><span>Suricata IDS</span></a></li>
+        <li class="nav-item"><a href="05_ai_agents.html"><span class="nav-icon">🤖</span><span>AI Agents</span></a></li>
+        <li class="nav-item"><a href="06_iris_cases.html"><span class="nav-icon">📋</span><span>DFIR-IRIS</span></a></li>
+        <li class="nav-item"><a href="07_caldera_attack.html"><span class="nav-icon">⚔️</span><span>Caldera</span></a></li>
+        <li class="nav-item"><a href="08_misp_ti.html"><span class="nav-icon">🌍</span><span>MISP Intel</span></a></li>
+        <li class="nav-item"><a href="09_velociraptor.html"><span class="nav-icon">🦖</span><span>Velociraptor</span></a></li>
+        <li class="nav-item"><a href="10_responder_redteam.html"><span class="nav-icon">🎭</span><span>Responder</span></a></li>
+      </ul>
+    </div>
+    <div class="sidebar-footer">SOC Lab v2.0 · OSS</div>
+  </nav>
+
+  <header class="topbar">
+    <div class="topbar-title"><span class="page-icon">🗺️</span> Live Cyber Attack Map & Threat Stream</div>
+    <span class="topbar-meta" style="display:flex;align-items:center;gap:8px;">
+      <span class="pulse-circle"></span> Live Feed Stream Active · Target: SOC Home Lab Sensors
+    </span>
+    <div class="topbar-right">
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="btn-mode-threatseye" onclick="setMapMode('threatseye')">
+          <span>🌐 Kaspersky Map</span>
+        </button>
+        <button class="toggle-btn" id="btn-mode-native" onclick="setMapMode('native')">
+          <span>⚡ Native Cyber Globe</span>
+        </button>
+      </div>
+      <a href="https://threatseye.io/threats-map" target="_blank" class="btn btn-ghost btn-sm">Pop-out Map ↗</a>
+      <a href="01_soc_overview.html" class="btn btn-ghost btn-sm">← Overview</a>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+    <!-- KPI Summary Row -->
+    <div class="grid-4 mb-4">
+      <div class="kpi-card critical">
+        <div class="kpi-label">Active Global Attacks / Sec</div>
+        <div class="kpi-value" id="kpi-attacks-sec">48.2</div>
+        <div class="kpi-sub">Real-time telemetry</div>
+      </div>
+      <div class="kpi-card high">
+        <div class="kpi-label">Top Attack Origin</div>
+        <div class="kpi-value" id="kpi-top-origin">China (CN)</div>
+        <div class="kpi-sub">34.2% of total vectors</div>
+      </div>
+      <div class="kpi-card medium">
+        <div class="kpi-label">Top Target Protocol</div>
+        <div class="kpi-value" id="kpi-top-proto">HTTPS / SSH</div>
+        <div class="kpi-sub">Port 443, Port 22 Brute Force</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-label">Feed Latency</div>
+        <div class="kpi-value" id="kpi-latency">18 ms</div>
+        <div class="kpi-sub">Stream synchronized</div>
+      </div>
+    </div>
+
+    <!-- Map Viewport -->
+    <div class="card mb-4" style="padding:0;overflow:hidden;border-radius:var(--radius-md);">
+      <div class="map-viewport" id="map-container">
+        
+        <!-- Stats Overlay -->
+        <div class="map-overlay-stats">
+          <div class="stat-item">
+            <span class="stat-label">Total Tracked (24h)</span>
+            <span class="stat-val acc" id="stat-total">142,890</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">High Severity</span>
+            <span class="stat-val high" id="stat-high">3,412</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">IPS Blocks</span>
+            <span class="stat-val crit" id="stat-blocked">99.4%</span>
+          </div>
+        </div>
+
+        <!-- Mode 1: ThreatsEye Iframe -->
+        <iframe id="iframe-threatseye" class="map-iframe" src="https://cybermap.kaspersky.com/en/widget/dynamic/dark" title="Kaspersky Live Cyber Threat Map" allow="fullscreen"></iframe>
+
+        <!-- Mode 2: Native Canvas Map (hidden initially) -->
+        <canvas id="canvas-native-map" class="canvas-map" style="display:none;"></canvas>
+
+      </div>
+    </div>
+
+    <!-- Real-time Threat Stream Table -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🚨 Real-time Global Threat Feed Stream</span>
+        <span class="badge badge-critical" id="feed-status">STREAMING LIVE</span>
+      </div>
+      <div class="card-body" style="padding:0;max-height:360px;overflow-y:auto;">
+        <table class="live-feed-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Origin IP / Country</th>
+              <th>Target Port / Service</th>
+              <th>MITRE Technique</th>
+              <th>Attack Signature</th>
+              <th>Severity</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="live-feed-tbody">
+            <!-- Populated via JavaScript live ticker -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Mode switching between ThreatsEye iframe and Native Canvas Map
+function setMapMode(mode) {
+  const btnThreatsEye = document.getElementById('btn-mode-threatseye');
+  const btnNative = document.getElementById('btn-mode-native');
+  const iframe = document.getElementById('iframe-threatseye');
+  const canvas = document.getElementById('canvas-native-map');
+
+  if (mode === 'threatseye') {
+    btnThreatsEye.classList.add('active');
+    btnNative.classList.remove('active');
+    iframe.style.display = 'block';
+    canvas.style.display = 'none';
+  } else {
+    btnNative.classList.add('active');
+    btnThreatsEye.classList.remove('active');
+    iframe.style.display = 'none';
+    canvas.style.display = 'block';
+    initNativeCanvasMap();
+  }
+}
+
+// Simulated High-Speed Real-Time Threat Stream Log
+const attackOrigins = [
+  { ip: '185.220.101.45', country: 'RU (Russia)', city: 'Moscow' },
+  { ip: '118.25.6.39', country: 'CN (China)', city: 'Shenzhen' },
+  { ip: '178.62.204.10', country: 'IR (Iran)', city: 'Tehran' },
+  { ip: '194.26.29.112', country: 'KP (North Korea)', city: 'Pyongyang' },
+  { ip: '45.133.1.88', country: 'NL (Netherlands)', city: 'Amsterdam' },
+  { ip: '103.145.12.90', country: 'VN (Vietnam)', city: 'Hanoi' },
+  { ip: '189.44.12.5', country: 'BR (Brazil)', city: 'São Paulo' }
+];
+
+const attackTargets = [
+  { port: '443 / HTTPS', service: 'Web Application Firewall' },
+  { port: '22 / SSH', service: 'Edge Gateway Server' },
+  { port: '3389 / RDP', service: 'Internal Bastion Host' },
+  { port: '53 / DNS', service: 'Core DNS Resolver' },
+  { port: '1433 / MSSQL', service: 'Production Database' },
+  { port: '8080 / HTTP', service: 'SOC Lab API Container' }
+];
+
+const attackSignatures = [
+  { tech: 'T1110.001', sig: 'SSH Brute Force Dictionary Attack Spray', sev: 'HIGH', badge: 'badge-high' },
+  { tech: 'T1566.001', sig: 'Spearphishing Attachment Delivery Attempt', sev: 'MED', badge: 'badge-medium' },
+  { tech: 'T1190', sig: 'Log4Shell CVE-2021-44228 RCE Exploitation Attempt', sev: 'CRITICAL', badge: 'badge-critical' },
+  { tech: 'T1059.001', sig: 'PowerShell Encoded Command Payload Download', sev: 'HIGH', badge: 'badge-high' },
+  { tech: 'T1498.001', sig: 'TCP SYN Flood DDoS Volumetric Spike (4.2 Gbps)', sev: 'CRITICAL', badge: 'badge-critical' },
+  { tech: 'T1071.004', sig: 'DNS Tunneling Command & Control Beaconing', sev: 'HIGH', badge: 'badge-high' }
+];
+
+function formatTime(date) {
+  return date.toTimeString().split(' ')[0] + '.' + String(date.getMilliseconds()).padStart(3,'0');
+}
+
+let totalAttacks = 142890;
+
+function injectLiveFeedRow() {
+  const tbody = document.getElementById('live-feed-tbody');
+  if (!tbody) return;
+
+  const origin = attackOrigins[Math.floor(Math.random() * attackOrigins.length)];
+  const target = attackTargets[Math.floor(Math.random() * attackTargets.length)];
+  const sig = attackSignatures[Math.floor(Math.random() * attackSignatures.length)];
+  const now = new Date();
+
+  totalAttacks++;
+  document.getElementById('stat-total').textContent = totalAttacks.toLocaleString();
+  document.getElementById('kpi-attacks-sec').textContent = (42 + Math.random() * 15).toFixed(1);
+
+  const tr = document.createElement('tr');
+  tr.style.animation = 'fadeIn 0.3s ease';
+  tr.innerHTML = `
+    <td class="mono" style="color:var(--text-muted);">${formatTime(now)}</td>
+    <td><span class="mono" style="font-weight:600;">${origin.ip}</span> <span style="color:var(--text-secondary);font-size:11px;">(${origin.country})</span></td>
+    <td class="mono" style="color:var(--accent);">${target.port}</td>
+    <td><span class="technique-tag">${sig.tech}</span></td>
+    <td style="font-weight:500;">${sig.sig}</td>
+    <td><span class="badge ${sig.badge}">${sig.sev}</span></td>
+    <td><span class="badge badge-low" style="background:rgba(34,197,94,0.15);color:#22c55e;">BLOCKED</span></td>
+  `;
+
+  tbody.insertBefore(tr, tbody.firstChild);
+  if (tbody.children.length > 25) {
+    tbody.removeChild(tbody.lastChild);
+  }
+}
+
+// Initial population of 10 rows
+for (let i = 0; i < 10; i++) {
+  injectLiveFeedRow();
+}
+
+// Live feed interval every 1.2 to 2.5 seconds
+setInterval(injectLiveFeedRow, 1400);
+
+// Native Canvas Cyber Globe Animation (if user toggles to Native mode)
+let canvasInitialized = false;
+function initNativeCanvasMap() {
+  if (canvasInitialized) return;
+  canvasInitialized = true;
+
+  const canvas = document.getElementById('canvas-native-map');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.parentElement.clientWidth;
+  canvas.height = canvas.parentElement.clientHeight;
+
+  // Global coordinates (normalized 0 to 1)
+  const nodes = [
+    { name: 'US (New York)', x: 0.28, y: 0.35, isTarget: true },
+    { name: 'EU (Frankfurt)', x: 0.52, y: 0.32, isTarget: true },
+    { name: 'RU (Moscow)', x: 0.60, y: 0.28, isTarget: false },
+    { name: 'CN (Beijing)', x: 0.78, y: 0.38, isTarget: false },
+    { name: 'KP (Pyongyang)', x: 0.81, y: 0.37, isTarget: false },
+    { name: 'IR (Tehran)', x: 0.62, y: 0.42, isTarget: false },
+    { name: 'BR (São Paulo)', x: 0.36, y: 0.72, isTarget: false },
+    { name: 'JP (Tokyo)', x: 0.85, y: 0.40, isTarget: true },
+    { name: 'AU (Sydney)', x: 0.86, y: 0.78, isTarget: true }
+  ];
+
+  let arcs = [];
+
+  function spawnArc() {
+    const origins = nodes.filter(n => !n.isTarget);
+    const targets = nodes.filter(n => n.isTarget);
+    const origin = origins[Math.floor(Math.random() * origins.length)];
+    const target = targets[Math.floor(Math.random() * targets.length)];
+
+    arcs.push({
+      startX: origin.x * canvas.width,
+      startY: origin.y * canvas.height,
+      endX: target.x * canvas.width,
+      endY: target.y * canvas.height,
+      progress: 0,
+      speed: 0.015 + Math.random() * 0.015,
+      color: Math.random() > 0.3 ? '#ef4444' : '#f97316'
+    });
+  }
+
+  setInterval(spawnArc, 600);
+
+  function draw() {
+    if (canvas.style.display === 'none') {
+      requestAnimationFrame(draw);
+      return;
+    }
+
+    ctx.fillStyle = 'rgba(6, 9, 19, 0.25)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw grid
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.08)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+
+    // Draw nodes
+    nodes.forEach(node => {
+      const nx = node.x * canvas.width;
+      const ny = node.y * canvas.height;
+      ctx.beginPath();
+      ctx.arc(nx, ny, node.isTarget ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = node.isTarget ? '#3b82f6' : '#ef4444';
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.fillText(node.name, nx + 10, ny + 3);
+    });
+
+    // Draw arcs
+    for (let i = arcs.length - 1; i >= 0; i--) {
+      const arc = arcs[i];
+      arc.progress += arc.speed;
+
+      const curX = arc.startX + (arc.endX - arc.startX) * arc.progress;
+      const curY = arc.startY + (arc.endY - arc.startY) * arc.progress - Math.sin(arc.progress * Math.PI) * 60;
+
+      ctx.beginPath();
+      ctx.arc(curX, curY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = arc.color;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = arc.color;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Draw tail
+      ctx.beginPath();
+      ctx.moveTo(arc.startX, arc.startY);
+      ctx.quadraticCurveTo(
+        (arc.startX + arc.endX) / 2,
+        (arc.startY + arc.endY) / 2 - 60,
+        curX, curY
+      );
+      ctx.strokeStyle = arc.color + '66';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      if (arc.progress >= 1) {
+        // Target impact ripple
+        ctx.beginPath();
+        ctx.arc(arc.endX, arc.endY, 15, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ef4444';
+        ctx.stroke();
+        arcs.splice(i, 1);
+      }
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+}
+</script>
+</body>
+</html>
